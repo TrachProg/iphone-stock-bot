@@ -1,0 +1,39 @@
+name: iPhone stock bot
+
+on:
+  schedule:
+    # Кожні 6 годин (UTC). Кожен запуск працює ~5 год 45 хв, тож бот крутиться майже безперервно.
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}  # ручний запуск з вкладки Actions
+
+# Якщо стартував новий запуск, а старий ще працює — старий зупиняється.
+concurrency:
+  group: iphone-stock-bot
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PYTHONUNBUFFERED: "1"
+        run: python iphone_stock_bot.py --max-runtime 20700
+
+      # Детальний лог можна завантажити зі сторінки запуску (Artifacts).
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bot-logs
+          path: logs/
+          retention-days: 7
