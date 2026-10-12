@@ -1,15 +1,21 @@
 name: iPhone stock bot
 
 on:
+  # Резерв: щогодини о :23 (не рівно о :00 — тоді GitHub найчастіше пропускає запуски).
+  # Основний механізм — бот сам перезапускає себе в кінці кожного прогону (крок "Restart").
   schedule:
-    # Кожні 6 годин (UTC). Кожен запуск працює ~5 год 45 хв, тож бот крутиться майже безперервно.
-    - cron: "0 */6 * * *"
+    - cron: "23 * * * *"
   workflow_dispatch: {}  # ручний запуск з вкладки Actions
 
-# Якщо стартував новий запуск, а старий ще працює — старий зупиняється.
+permissions:
+  contents: read
+  actions: write  # щоб крок "Restart" міг запустити наступний прогін
+
+# Одночасно працює тільки один бот. Новий запуск чекає в черзі, поки поточний не завершиться
+# (з черги лишається тільки найсвіжіший, старіші очікуючі скасовуються — це нормально).
 concurrency:
   group: iphone-stock-bot
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   run:
@@ -37,3 +43,10 @@ jobs:
           name: bot-logs
           path: logs/
           retention-days: 7
+
+      # Ланцюжок: одразу ставимо в чергу наступний прогін. Не спрацьовує, якщо запуск скасували вручну.
+      - name: Restart
+        if: success() || failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run bot.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"
